@@ -11,12 +11,12 @@ from pymatgen.analysis.defects.generators import VacancyGenerator
 from pymatgen.analysis.local_env import CrystalNN
 from pymatgen.core import Species, Structure
 from pymatgen.io.ase import AseAtomsAdaptor
+from pymatgen.analysis.bond_valence import BVAnalyzer as BVA
 from pymatgen.io.vasp import Poscar
 
 EB_DICT = {"filepath": "../data/features/Eb.csv", "column_name": "Eb", "comparison": "os"}
 VR_DICT = {"filepath": "../data/features/Vr.csv", "column_name": "Vr", "comparison": "n"}
-
-
+BV_DICT = {"filepath": "../data/features/valence_data_full.csv", "column_name": "BVS_ratio", "comparison": "full_name"}
 
 class Crystal:
     """
@@ -91,7 +91,8 @@ class Crystal:
             pymatgen_structure: Optional[Structure] = None,
             nn_finder: Optional[CrystalNN] = None,
             use_weights: Optional[bool] = False,
-            species_symbol: Optional[str] = "O"
+            species_symbol: Optional[str] = "O",
+            n: Optional[int] = None                  # attempt to allow for pre-emptive indexing
     ):
         
         """
@@ -109,44 +110,39 @@ class Crystal:
         Examples:
             # TODO: Add examples
         """
-        print("Crystal constructor: start")
         if filepath:
-            print("Crystal constructor: reading structure from file")
             self.structure = Structure.from_file(filepath)
             if filepath.endswith(".txt"):  # Assuming your POSCAR files have a .txt extension
-                print("Crystal constructor: adding oxidation states by guess")
                 self.structure.add_oxidation_state_by_guess()
         elif poscar_string:
-            print("Crystal constructor: reading structure from poscar string")
             self.structure = Structure.from_str(poscar_string, fmt="poscar")
             self.structure.add_oxidation_state_by_guess()
         elif pymatgen_structure:
-            print("Crystal constructor: using pymatgen structure")
             self.structure = pymatgen_structure
         else:
             raise ValueError("Specify either filepath, poscar_string, or pymatgen_structure.")
-        print("Crystal constructor: initializing other attributes")
+
         self.nn_finder = nn_finder or CrystalNN()
-        print('Crystal connstructor: 1')
         self.use_weights = use_weights
-        print('Crystal connstructor: 2')
+        self.n = n
+        # self.bv_finder = bv_finder
         self.species_symbol = species_symbol
-        print('Crystal connstructor: 3')
         package_dir = Path(__file__).parent
         self.eb = pd.read_csv(package_dir / EB_DICT["filepath"])
         self.vr = pd.read_csv(package_dir / VR_DICT["filepath"])
-        print('Crystal connstructor: 4')
+        self.bvs = pd.read_csv(package_dir / BV_DICT["filepath"])
         self._cn_dicts_initialized = False
-        print('Crystal connstructor: 4.25')
         self.cn_dicts = []
-        print('Crystal connstructor: 4.5')
+        # self.bv_dicts = []
+
         self.bond_dissociation_enthalpies = self._get_values(self.eb, EB_DICT["column_name"], EB_DICT["comparison"])
-        print('Crystal connstructor: 5')
+
 
         self.reduction_potentials = self._get_values(self.vr, VR_DICT["column_name"], VR_DICT["comparison"])
-        print('Crystal connstructor: 6')
 
-        print("Crystal constructor: end")
+
+        self.bond_valence_sum_ratios = self._get_values(self.bvs, BV_DICT["column_name"], BV_DICT["comparison"])
+
 
     def _initialize_structure_analysis(self) -> List[Dict[str, int]]:
         """
@@ -159,24 +155,26 @@ class Crystal:
             # TODO: Add examples
         """
         if self._cn_dicts_initialized:
-            print('initialize_structure_analysis: already initialized')
             return self.cn_dicts
 
         # Check for oxidation states and add them if they are not present in the structure object already
-        print('initialize_structure_analysis: 0')
         if sum([x.oxi_state != 0 for x in self.structure.species]) == 0:
             self.structure.add_oxidation_state_by_guess()
-        print('initialize_structure_analysis: 1')
-        vacancy_generator = VacancyGenerator() # if available, take in a vacancy instead of generating (bottleneck)
+        vacancy_generator = VacancyGenerator()
+        # if available, take in a vacancy instead of generating (bottleneck)
+        if self.n is not None:
+            self.cn_dicts = [self.nn_finder.get_cn_dict(self.structure, n=self.n, use_weights=self.use_weights)]
+            # self.cn_dicts = self.nn_finder.BVA().get_valences(self.structure) # DOESNT WORK
+            self._cn_dicts_initialized = True
+            return self.cn_dicts
+            # self.bv_dicts = [self.bv_finder.get_valences(structure=self.structure)]
+        else:
         # bulk visual data json
-        print('initialize_structure_analysis: 2')
-        vacancies = vacancy_generator.get_defects(self.structure)
-        print('initialize_structure_analysis: 3')
-        indices = [v.defect_site_index for v in vacancies if v.site.specie.symbol == self.species_symbol]
-        self.cn_dicts = [self.nn_finder.get_cn_dict(self.structure, i, use_weights=self.use_weights) for i in indices]
-        self._cn_dicts_initialized = True
-        print('initialize_structure_analysis: 4')
-        return self.cn_dicts
+            vacancies = vacancy_generator.get_defects(self.structure)
+            indices = [v.defect_site_index for v in vacancies if v.site.specie.symbol == self.species_symbol]
+            self.cn_dicts = [self.nn_finder.get_cn_dict(self.structure, i, use_weights=self.use_weights) for i in indices]
+            self._cn_dicts_initialized = True
+            return self.cn_dicts
 
     def _get_values(self, dataframe: pd.DataFrame, column_name: str, comparison: str) -> List[Dict[str, float]]:
         """
@@ -194,11 +192,8 @@ class Crystal:
             # TODO: Add examples
         """
         try:
-            print('get_values: 0')
             self._initialize_structure_analysis()
-            print('get_values: 0.5')
             values = []
-            print('get_values: 1')
             for cn_dict in self.cn_dicts:
                 value = {}
                 for species_string, cn in cn_dict.items():

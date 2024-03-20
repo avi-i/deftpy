@@ -1,6 +1,5 @@
 from glob import glob
 
-import adjustText
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -12,12 +11,11 @@ from tqdm import tqdm
 
 from crystal_analysis import Crystal
 
-
 def get_unitcell_mesh(lattice):
     pass
 
 def main():
-    data_path = '../data/papers/witman/structures_production/data_01_03_22/'
+    data_path = '../data/papers/witman/structures_production/data_01_03_22/'  #this path will not work as currently set
     csv_paths = sorted(glob(data_path + "csvs/*.csv"))
     #poscar_path = "playground/witman_data/data_01_03_22/poscars"
     poscar_path = data_path + "poscars"
@@ -143,8 +141,7 @@ def main():
             )
         except ValueError:
             pass
-    #print(df_cf)
-    #exit(4)
+
     df_cf = df_cf.reset_index(drop=True)
     df_cf.to_csv("../data/papers/witman/figures/witman_data_cleanup.csv", index=False)
 
