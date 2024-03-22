@@ -99,13 +99,15 @@ def main():
         df_defectid = df[df["defectid"] == defectid]
         structure = df_defectid["structure"].iloc[0]
         site_index = df_defectid["site"].iloc[0]
-
-        valences = BVA().get_valences(structure)
-        site_valence = valences[site_index]
-        near_neighbors = get_nearest_neighbors(structure, site_index)
-        bv_sum_defined = calculate_bv_sum(site=site_index, nn_list=near_neighbors)
-        bvs_ratio = bv_sum_defined/site_valence
-
+        defect_site = structure[site_index]
+        try:
+            valences = BVA().get_valences(structure)
+            site_valence = valences[site_index]
+            near_neighbors = get_nearest_neighbors(structure, site_index)
+            bv_sum_defined = calculate_bv_sum(site=defect_site, nn_list=near_neighbors)
+            bvs_ratio = bv_sum_defined/site_valence
+        except ValueError:
+            bvs_ratio = np.nan
         # crystal = Crystal(pymatgen_structure=structure, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
         crystal = Crystal(pymatgen_structure=structure)
 
@@ -150,6 +152,7 @@ def main():
                             "defectid": defectid,
                             "site": site,
                             "Eb_sum": Eb_sum,
+                            "Eb_sum_bva": Eb_sum_bvs,
                             "Vr_max": Vr_max,
                             "Eg": Eg,
                             "Ev": Ev,
@@ -162,27 +165,41 @@ def main():
             pass
 
     df_cf = df_cf.reset_index(drop=True)
-    df_cf.to_csv("../data/papers/witman/figures/witman_data_bvs.csv", index=False)
+    # df_cf.to_csv("../data/papers/witman/figures/witman_data_bvs.csv", index=False)
 
     df_cf = df_cf.dropna()
     cfm = HuberRegressor()
+    cfm_alt = HuberRegressor()
     #X = df_cf[["Vr_max", "Eg"]]
-    #X = df_cf[["Eb_sum", "Vr_max", "Eg"]]
-    X = df_cf[["Eb_sum", "Vr_max", "Eg", "Ehull"]]
+    X = df_cf[["Eb_sum", "Vr_max", "Eg"]]
+    X_alt = df_cf[["Eb_sum_bva", "Vr_max", "Eg"]]
+    # X = df_cf[["Eb_sum", "Vr_max", "Eg", "Ehull"]]
     y = df_cf["Ev"]
     cfm.fit(X, y)
+    cfm_alt.fit(X_alt, y)
     y_pred = cfm.predict(X)
+    y_pred_alt = cfm_alt.predict(X_alt)
     coefs = cfm.coef_
+    ceofs_alt = cfm_alt.coef_
     print(coefs)
     #exit(4)
-    df_cf['y_pred'] = y_pred
+    # df_cf['y_pred'] = y_pred
 
-    equation = f"$E_v$ = {cfm.intercept_:.2f} + {cfm.coef_[0]:.2f} $\\Sigma E_b$ + {cfm.coef_[1]:.2f} $V_r$ + {cfm.coef_[2]:.2f} $E_g$ + {cfm.coef_[3]:.2f} $E_h_u_l_l$"
+    equation = f"$E_v$ = {cfm.intercept_:.2f} + {cfm.coef_[0]:.2f} $\\Sigma E_b$ + {cfm.coef_[1]:.2f} $V_r$ + {cfm.coef_[2]:.2f} $E_g$"
+    equation_alt = f"$E_v$ = {cfm_alt.intercept_:.2f} + {cfm_alt.coef_[0]:.2f} $\\Sigma E_b$ + {cfm_alt.coef_[1]:.2f} $V_r$ + {cfm_alt.coef_[2]:.2f} $E_g$"
+
+    # equation = f"$E_v$ = {cfm.intercept_:.2f} + {cfm.coef_[0]:.2f} $\\Sigma E_b$ + {cfm.coef_[1]:.2f} $V_r$ + {cfm.coef_[2]:.2f} $E_g$ + {cfm.coef_[3]:.2f} $E_h_u_l_l$"
     print(equation)
     mae = np.mean(np.abs(y - y_pred))
+    mae_alt = np.mean(np.abs(y - y_pred_alt))
     print(mae)
-    n = f"n = {len(y)}"
+    n = f"n = {len(y_pred)}"
+    n_alt = f"n = {len(y_pred_alt)}"
     print(n)
 
+    print(ceofs_alt)
+    print(equation_alt)
+    print(mae_alt)
+    print(n_alt)
 if __name__ == "__main__":
     main()
