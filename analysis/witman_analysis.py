@@ -104,10 +104,14 @@ def main():
             valences = BVA().get_valences(structure)
             site_valence = valences[site_index]
             near_neighbors = get_nearest_neighbors(structure, site_index)
+            nn = structure.get_neighbors(defect_site, 3)
             bv_sum_defined = calculate_bv_sum(site=defect_site, nn_list=near_neighbors)
-            bvs_ratio = bv_sum_defined/site_valence
+            bv_sum_nn = calculate_bv_sum(site=defect_site, nn_list=nn)
+            bvs_ratio_crystal = bv_sum_defined/site_valence
+            bvs_ratio_nn = bv_sum_nn/site_valence
         except ValueError:
-            bvs_ratio = np.nan
+            bvs_ratio_crystal = np.nan
+            bvs_ratio_nn = np.nan
         # crystal = Crystal(pymatgen_structure=structure, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
         crystal = Crystal(pymatgen_structure=structure)
 
@@ -120,11 +124,13 @@ def main():
         # Calculate CN-weighted Eb sum
         Eb_sum = []
         Eb_sum_bvs = []
+        Eb_sum_bvs_nn = []
         for CN_dict, Eb_dict in zip(CN, Eb):
                 CN_array = np.array(list(CN_dict.values()))
                 Eb_array = np.array(list(Eb_dict.values()))
                 Eb_sum.append(np.sum(CN_array * Eb_array))
-                Eb_sum_bvs.append(np.sum(CN_array * bvs_ratio * Eb_array))
+                Eb_sum_bvs.append(np.sum(CN_array * bvs_ratio_crystal * Eb_array))
+                Eb_sum_bvs.append(np.sum(CN_array * bvs_ratio_nn * Eb_array))
 
         # Calculate maximum Vr
         Vr_max = []
@@ -153,6 +159,7 @@ def main():
                             "site": site,
                             "Eb_sum": Eb_sum,
                             "Eb_sum_bva": Eb_sum_bvs,
+                            "Eb_sum_bva_nn": Eb_sum_bvs_nn,
                             "Vr_max": Vr_max,
                             "Eg": Eg,
                             "Ev": Ev,
