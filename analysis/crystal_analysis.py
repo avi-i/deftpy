@@ -16,7 +16,7 @@ from pymatgen.io.vasp import Poscar
 
 EB_DICT = {"filepath": "../data/features/Eb.csv", "column_name": "Eb", "comparison": "os"}
 VR_DICT = {"filepath": "../data/features/Vr.csv", "column_name": "Vr", "comparison": "n"}
-BV_DICT = {"filepath": "../data/features/valence_data_full.csv", "column_name": "BVS_ratio", "comparison": "full_name"}
+# BV_DICT = {"filepath": "../data/features/valence_data_full.csv", "column_name": "BVS_ratio", "comparison": "full_name"}
 
 class Crystal:
     """
@@ -130,7 +130,7 @@ class Crystal:
         package_dir = Path(__file__).parent
         self.eb = pd.read_csv(package_dir / EB_DICT["filepath"])
         self.vr = pd.read_csv(package_dir / VR_DICT["filepath"])
-        self.bvs = pd.read_csv(package_dir / BV_DICT["filepath"])
+        # self.bvs = pd.read_csv(package_dir / BV_DICT["filepath"])
         self._cn_dicts_initialized = False
         self.cn_dicts = []
         # self.bv_dicts = []
@@ -141,7 +141,7 @@ class Crystal:
         self.reduction_potentials = self._get_values(self.vr, VR_DICT["column_name"], VR_DICT["comparison"])
 
 
-        self.bond_valence_sum_ratios = self._get_values(self.bvs, BV_DICT["column_name"], BV_DICT["comparison"])
+        # self.bond_valence_sum_ratios = self._get_values(self.bvs, BV_DICT["column_name"], BV_DICT["comparison"])
 
 
     def _initialize_structure_analysis(self) -> List[Dict[str, int]]:

@@ -8,14 +8,23 @@ from pymatgen.core import Structure, Composition
 from pymatgen.vis.structure_vtk import StructureVis
 from sklearn.linear_model import HuberRegressor
 from tqdm import tqdm
-
+from pymatgen.analysis.bond_valence import BVAnalyzer as BVA, calculate_bv_sum
 from crystal_analysis import Crystal
 
 def get_unitcell_mesh(lattice):
     pass
 
+def get_nearest_neighbors(structure, site_index):
+    nn = CrystalNN()
+    neighbors = nn.get_nn_info(structure, site_index)
+    nearest_neighbors = []
+    for neighbor_info in neighbors:
+        site = neighbor_info['site']
+        nearest_neighbors.append(site)
+    return nearest_neighbors
+
 def main():
-    data_path = '../data/papers/witman/structures_production/data_01_03_22/'  #this path will not work as currently set
+    data_path = '/Users/isakov/Desktop/Fall_23/structures_production/data_01_03_22/'  #this path will not work as currently set
     csv_paths = sorted(glob(data_path + "csvs/*.csv"))
     #poscar_path = "playground/witman_data/data_01_03_22/poscars"
     poscar_path = data_path + "poscars"
@@ -89,8 +98,16 @@ def main():
     for defectid in tqdm(df["defectid"].unique()):
         df_defectid = df[df["defectid"] == defectid]
         structure = df_defectid["structure"].iloc[0]
-        crystal = Crystal(pymatgen_structure=structure, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
-        #crystal = Crystal(pymatgen_structure=structure)
+        site_index = df_defectid["site"].iloc[0]
+
+        valences = BVA().get_valences(structure)
+        site_valence = valences[site_index]
+        near_neighbors = get_nearest_neighbors(structure, site_index)
+        bv_sum_defined = calculate_bv_sum(site=site_index, nn_list=near_neighbors)
+        bvs_ratio = bv_sum_defined/site_valence
+
+        # crystal = Crystal(pymatgen_structure=structure, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
+        crystal = Crystal(pymatgen_structure=structure)
 
         #crystal.structure.to(filename="AlCoO_nw.VASP", fmt="poscar")
 
@@ -100,10 +117,12 @@ def main():
 
         # Calculate CN-weighted Eb sum
         Eb_sum = []
+        Eb_sum_bvs = []
         for CN_dict, Eb_dict in zip(CN, Eb):
                 CN_array = np.array(list(CN_dict.values()))
                 Eb_array = np.array(list(Eb_dict.values()))
                 Eb_sum.append(np.sum(CN_array * Eb_array))
+                Eb_sum_bvs.append(np.sum(CN_array * bvs_ratio * Eb_array))
 
         # Calculate maximum Vr
         Vr_max = []
@@ -143,7 +162,7 @@ def main():
             pass
 
     df_cf = df_cf.reset_index(drop=True)
-    df_cf.to_csv("../data/papers/witman/figures/witman_data_cleanup.csv", index=False)
+    df_cf.to_csv("../data/papers/witman/figures/witman_data_bvs.csv", index=False)
 
     df_cf = df_cf.dropna()
     cfm = HuberRegressor()

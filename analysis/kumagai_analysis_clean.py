@@ -76,11 +76,12 @@ def main():
     df_bva = pd.read_csv("valence_data_full.csv")
     df_bva['vacancy_index'] = df_bva['site'] + 1
     df_bva['merge_on'] = df_bva['full_name'] + df_bva['vacancy_index'].astype(str)
-    df_bva = df_bva[["merge_on", 'valence', 'bv_sum_Crystal', 'bv_sum_nn']].reset_index(drop=True)
-    df_plot['merge_on'] = df_plot['full_name'] + df_plot['vacancy_index'].astype(str)
+    df_bva = df_bva[["merge_on", 'valence', 'bv_sum_Crystal', 'bv_sum_nn', 'BVS_ratio']].reset_index(drop=True)
+    df_plot.loc[:, 'merge_on'] = df_plot['full_name'] + df_plot['vacancy_index'].astype(str)
     # print(df_bva['merge_on'], df_plot['merge_on'])
     df_plot2 = pd.merge(df_plot, df_bva, on='merge_on', how='outer')
     df_plot = df_plot2.drop_duplicates()
+
     # df_plot.to_csv('test.csv')
 
     # Calculate crystal reduction potentials for binaries and non-binaries - from Vr CSV files
@@ -137,8 +138,7 @@ def main():
         max_vr = max(d['vr'] for d in metal_info)
         vr_list.append(max_vr)
     # can pre-check vr by ensuring the lengths of vr_list and the df are equal
-    # print(len(vr_list))
-    # print(len(df_plot))
+
     # Calculate 'vr_max' for the entire DataFrame
     df_plot["vr_max"] = vr_list
 
@@ -154,6 +154,7 @@ def main():
     for defect in tqdm(df_plot["vacancy_formation_energy"].unique()):
         df_defect = df_plot[df_plot["vacancy_formation_energy"] == defect]
         formula = df_defect["formula"].iloc[0]
+        bvs_ratio = df_defect["BVS_ratio"].iloc[0]
         index = df_defect["vacancy_index"].iloc[0]
 
         with tarfile.open(glob(data_path + "site_info.tar.gz")[0], "r:gz") as tar:
@@ -170,20 +171,19 @@ def main():
                         # # if you want to check symmetries/indexing all of these should match cell_info.txt files
                         # analyzer = SpacegroupAnalyzer(structure)
                         # symmetry_dataset = analyzer.get_symmetry_dataset()
-                        #
+
                         # wyckoff_symbols = symmetry_dataset['wyckoffs']
                         # wyckoff = wyckoff_symbols[index]
-                        #
+
                         # print(formula, index, f"wyckoff = {wyckoff}")
                         # # structures.append(structure)
 
                         # generate the crystal object - can supply nn_finder to weight cn appropriately
-                        crystal = Crystal(pymatgen_structure=structure, n=index)
                         # print("at crystal")
-                        # crystal = Crystal(pymatgen_structure=structure, n=index, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
-                        # crystal = Crystal(pymatgen_structure=structure, n=index,
-                        #                   nn_finder=BVA().get_valences(structure=structure), use_weights=True)
+                        # crystal = Crystal(pymatgen_structure=structure, n=index)
+                        crystal = Crystal(pymatgen_structure=structure, n=index, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
                         # print('crystal initialized')
+
                         CN = crystal.cn_dicts
                         Eb = crystal.bond_dissociation_enthalpies
                         # BV = crystal.bond_valence_sum_ratios
@@ -200,7 +200,7 @@ def main():
                             CN_array = np.array(list(CN_dict.values()))
                             # BV_array = np.array(list(BV_dict.values()))
                             Eb_array = np.array(list(Eb_dict.values()))
-                            Eb_sum.append(np.sum(CN_array * Eb_array))
+                            Eb_sum.append(np.sum(CN_array * bvs_ratio * Eb_array))
                             # Eb_sum.append(np.sum(CN_array * BV_array * Eb_array))
 
                     except ValueError:
@@ -216,7 +216,7 @@ def main():
     df_plot = df_plot.dropna()
     # this data frame will have Vr and Eb_sum in addition to the original columns kept for analysis
     print('complete')
-    df_plot.to_csv("kumagai_full_Eb_BV_Vr_from_csv_BVA.csv")
+    df_plot.to_csv("kumagai_full_Eb_BVS_frac_Vr.csv")
 
 if __name__ == "__main__":
     main()

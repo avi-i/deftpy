@@ -1,6 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 import numpy as np
 from adjustText import adjust_text
 
@@ -38,7 +38,7 @@ def main():
     plt.show()'''
 
     #plt BVS from crystal vs nn
-    crystal = df_plot['bv_sum_Crystal']
+    '''crystal = df_plot['bv_sum_Crystal']
     nearneighbor = df_plot['bv_sum_nn']
     formulas = df_plot['formula']
 
@@ -63,7 +63,23 @@ def main():
     plt.title('BVS of Crystal vs. Near Neighbor schemes')
     plt.tight_layout()
     plt.savefig('BVS_crystal_vs_nn_colorized.png')
-    plt.show()
+    plt.show()'''
 
+    df_Eb_BVS = pd.read_csv("kumagai_full_Eb_BVS_frac_Vr.csv")
+    df_Eb = pd.read_csv("kumagai_Vr_Eb_full.csv")
+
+    Eb_bvs = df_Eb_BVS["Eb_sum"]
+    Eb_frac = df_Eb["Eb_sum"]
+
+    plt.figure(figsize=(10, 10))
+    plt.scatter(Eb_bvs, Eb_frac)
+
+    plt.xlabel('bond valences')
+    plt.ylabel('fractional (Voronoi)')
+    plt.title('Binding Energy Sums from bond valence and fractional schemes')
+    plt.tight_layout()
+
+    # plt.savefig('Eb_sum_BVS_frac.png')
+    plt.show()
 if __name__ == "__main__":
     main()
