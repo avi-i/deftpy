@@ -1,3 +1,4 @@
+import csv
 from glob import glob
 
 import numpy as np
@@ -94,7 +95,10 @@ def main():
     # Calculate crystal features for binary structures
     #df = df[df["is_binary"]]
     df = df[df["is_binary_or_ternary"]]
+    mask = df.groupby('formula')['bandgap_eV'].transform('nunique') > 1
+    df = df[mask]
     df_cf = pd.DataFrame()
+
     for defectid in tqdm(df["defectid"].unique()):
         df_defectid = df[df["defectid"] == defectid]
         structure = df_defectid["structure"].iloc[0]
@@ -114,7 +118,6 @@ def main():
             bvs_ratio_nn = np.nan
         # crystal = Crystal(pymatgen_structure=structure, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
         crystal = Crystal(pymatgen_structure=structure)
-
         #crystal.structure.to(filename="AlCoO_nw.VASP", fmt="poscar")
 
         CN = crystal.cn_dicts
@@ -126,12 +129,11 @@ def main():
         Eb_sum_bvs = []
         Eb_sum_bvs_nn = []
         for CN_dict, Eb_dict in zip(CN, Eb):
-                CN_array = np.array(list(CN_dict.values()))
-                Eb_array = np.array(list(Eb_dict.values()))
-                Eb_sum.append(np.sum(CN_array * Eb_array))
-                Eb_sum_bvs.append(np.sum(CN_array * bvs_ratio_crystal * Eb_array))
-                Eb_sum_bvs.append(np.sum(CN_array * bvs_ratio_nn * Eb_array))
-
+            CN_array = np.array(list(CN_dict.values()))
+            Eb_array = np.array(list(Eb_dict.values()))
+            Eb_sum.append(np.sum(CN_array * Eb_array))
+            Eb_sum_bvs.append(np.sum(CN_array * bvs_ratio_crystal * Eb_array))
+            Eb_sum_bvs_nn.append(np.sum(CN_array * bvs_ratio_nn * Eb_array))
         # Calculate maximum Vr
         Vr_max = []
         for Vr_dict in Vr:
@@ -148,32 +150,60 @@ def main():
         Eg = df_defectid["bandgap_eV"].values
         Ev = df_defectid["dH_eV"].values
         Ehull = df_defectid["adjusted_dH"].values
-        try:
-            df_cf = pd.concat(
-                [
-                    df_cf,
-                    pd.DataFrame(
-                        {
-                            "formula": formula,
+        data_for_csv = []
+        data_for_csv.append({"formula": formula,
                             "defectid": defectid,
-                            "site": site,
-                            "Eb_sum": Eb_sum,
-                            "Eb_sum_bva": Eb_sum_bvs,
-                            "Eb_sum_bva_nn": Eb_sum_bvs_nn,
-                            "Vr_max": Vr_max,
-                            "Eg": Eg,
-                            "Ev": Ev,
-                            "Ehull": Ehull,
-                        }
-                    ),
-                ]
-            )
-        except ValueError:
-            pass
+                             "site": site,
+                             "Eb_sum": Eb_sum,
+                             "Eb_sum_bva": Eb_sum_bvs,
+                             "Eb_sum_bva_nn": Eb_sum_bvs_nn,
+                             "Vr_max": Vr_max,
+                             "Eg": Eg,
+                             "Ev": Ev,
+                             "Ehull": Ehull, })
+        # try:
+        #     df_cf = pd.concat(
+        #         [
+        #             df_cf,
+        #             pd.DataFrame(
+        #                 {
+        #                     "formula": formula,
+        #                     "defectid": defectid,
+        #                     "site": site,
+        #                     "Eb_sum": Eb_sum,
+        #                     "Eb_sum_bva": Eb_sum_bvs,
+        #                     "Eb_sum_bva_nn": Eb_sum_bvs_nn,
+        #                     "Vr_max": Vr_max,
+        #                     "Eg": Eg,
+        #                     "Ev": Ev,
+        #                     "Ehull": Ehull,
+        #                 }
+        #             ),
+        #         ]
+        #     )
+        # except ValueError:
+        #     print("df failed")
+        #     pass
 
     df_cf = df_cf.reset_index(drop=True)
-    # df_cf.to_csv("../data/papers/witman/figures/witman_data_bvs.csv", index=False)
+    # df_cf.to_csv("../data/papers/witman/figures/witman_data_polymorphs.csv", index=False)
 
+    csv_file_path = "../data/papers/witman/figures/witman_data_polymorphs.csv"
+
+    # Define the field names
+    field_names = ["formula", "defectid", "site", "Eb_sum", "Eb_sum_bva", "Eb_sum_bva_nn", "Vr_max", "Eg", "Ev", "Ehull"]
+
+    # Write the data to the CSV file
+    with open(csv_file_path, mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=field_names)
+
+        # Write the header
+        writer.writeheader()
+
+        # Write the data
+        for data_row in data_for_csv:
+            writer.writerow(data_row)
+    exit(3)
     df_cf = df_cf.dropna()
     cfm = HuberRegressor()
     cfm_alt = HuberRegressor()

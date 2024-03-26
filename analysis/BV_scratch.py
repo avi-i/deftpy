@@ -48,6 +48,7 @@ def main():
         n = df_defect['vacancy_index'].iloc[0] - 1
         # defect_site = structure[n]
         defect_site = base_structure[n]  # w/o assigning oxi-states
+        print(defect_site)
         try:
             # valences = BVA().get_valences(structure)
             valences = BVA().get_valences(base_structure) # w/o assigning oxi-states
