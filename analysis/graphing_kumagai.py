@@ -37,15 +37,16 @@ df_plot = pd.read_csv("kumagai_full_Eb_BVS_frac_Vr.csv")
 
 # # get binaries from binaries/ternaries
 df_plot["is_binary"] = df_plot.formula.apply(lambda x: len(Composition(x)) == 2)
-
+df_plot["Deml_o2p_Eg"] = df_plot["o2p_center_from_vbm"] + (1.5 /2) * df_plot['band_gap']
 fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
 
 for i, charge in enumerate([0, 1, 2]):
     cfm = linear_model.HuberRegressor()
+    X = df_plot.loc[df_plot.charge == charge, ["Deml_o2p_Eg"]]
     # X = df_plot.loc[df_plot.charge == charge, ["vr_max", "band_gap"]]
     # y = df_plot.loc[df_plot.charge == charge, "vacancy_formation_energy"]
     # X = df_plot.loc[df_plot.charge == charge, ["Eb_sum", "vr_max", "band_gap"]]
-    X = df_plot.loc[df_plot.charge == charge, ["Eb_sum", "vr_max", "band_gap", "o2p_center_from_vbm"]]
+    # X = df_plot.loc[df_plot.charge == charge, ["Eb_sum", "vr_max", "band_gap", "o2p_center_from_vbm"]]
     # X = df_plot.loc[df_plot.charge == charge, ["Eb_sum", "vr_max", "band_gap", "o2p_center_from_vbm", 'bv_sum_Crystal']]
     # X = df_plot.loc[df_plot.charge == charge, ["Eb_sum", "vr_max", "band_gap", 'bv_sum_Crystal']]
 
@@ -130,9 +131,10 @@ for i, charge in enumerate([0, 1, 2]):
     axs[i].set_ylim(-4, 10)
 
     # Add equation
+    equation = "$E_v = {:.2f} {:+.2f} Deml$".format(cfm.intercept_, cfm.coef_[0])
     # equation = "$E_v = {:.2f} {:+.2f} E_b {:+.2f} V_r {:+.2f} E_g$".format(cfm.intercept_, cfm.coef_[0], cfm.coef_[1],
     #                                                                        cfm.coef_[2])
-    equation = "$E_v = {:.2f} {:+.2f} E_b {:+.2f} V_r {:+.2f} E_g {:+.2f} O_p$".format(cfm.intercept_, cfm.coef_[0], cfm.coef_[1], cfm.coef_[2], cfm.coef_[3])
+    # equation = "$E_v = {:.2f} {:+.2f} E_b {:+.2f} V_r {:+.2f} E_g {:+.2f} O_p$".format(cfm.intercept_, cfm.coef_[0], cfm.coef_[1], cfm.coef_[2], cfm.coef_[3])
     # equation = "$E_v = {:.2f} {:+.2f} E_b {:+.2f} V_r {:+.2f} E_g {:+.2f} O_2p {:+.2f} BV_sum$".format(cfm.intercept_, cfm.coef_[0], cfm.coef_[1], cfm.coef_[2], cfm.coef_[3], cfm.coef_[4])
     # equation = "$E_v = {:.2f} {:+.2f} E_b {:+.2f} V_r {:+.2f} E_g {:+.2f} BVS$".format(cfm.intercept_, cfm.coef_[0], cfm.coef_[1], cfm.coef_[2], cfm.coef_[3])
 
@@ -171,5 +173,5 @@ for i, charge in enumerate([0, 1, 2]):
         #     axs[i].scatter([], [], marker=shape_map[x], label=f'group {x}')
         # axs[i].legend(loc='lower left', bbox_to_anchor=(2, 0.15))
 plt.tight_layout()
-plt.savefig("kumagai_full_vr_eb_frac_O2p_K5.png", dpi=300)
+plt.savefig("kumagai_full_O2p_deml.png", dpi=300)
 plt.show()

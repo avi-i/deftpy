@@ -95,18 +95,19 @@ def main():
     # Calculate crystal features for binary structures
     #df = df[df["is_binary"]]
     df = df[df["is_binary_or_ternary"]]
-    mask = df.groupby('formula')['bandgap_eV'].transform('nunique') > 1
-    df = df[mask]
     df_cf = pd.DataFrame()
 
     for defectid in tqdm(df["defectid"].unique()):
         df_defectid = df[df["defectid"] == defectid]
         structure = df_defectid["structure"].iloc[0]
+        print(structure)
         site_index = df_defectid["site"].iloc[0]
+        print(site_index)
         defect_site = structure[site_index]
         try:
             valences = BVA().get_valences(structure)
             site_valence = valences[site_index]
+            print(site_valence)
             near_neighbors = get_nearest_neighbors(structure, site_index)
             nn = structure.get_neighbors(defect_site, 3)
             bv_sum_defined = calculate_bv_sum(site=defect_site, nn_list=near_neighbors)
@@ -146,64 +147,35 @@ def main():
         # Make a dataframe
         formula = df_defectid["formula"].values
         defectid = df_defectid["defectid"].values
-        site = df_defectid["site"].values
         Eg = df_defectid["bandgap_eV"].values
         Ev = df_defectid["dH_eV"].values
         Ehull = df_defectid["adjusted_dH"].values
-        data_for_csv = []
-        data_for_csv.append({"formula": formula,
+        try:
+            df_cf = pd.concat(
+                [
+                    df_cf,
+                    pd.DataFrame(
+                        {
+                            "formula": formula,
                             "defectid": defectid,
-                             "site": site,
-                             "Eb_sum": Eb_sum,
-                             "Eb_sum_bva": Eb_sum_bvs,
-                             "Eb_sum_bva_nn": Eb_sum_bvs_nn,
-                             "Vr_max": Vr_max,
-                             "Eg": Eg,
-                             "Ev": Ev,
-                             "Ehull": Ehull, })
-        # try:
-        #     df_cf = pd.concat(
-        #         [
-        #             df_cf,
-        #             pd.DataFrame(
-        #                 {
-        #                     "formula": formula,
-        #                     "defectid": defectid,
-        #                     "site": site,
-        #                     "Eb_sum": Eb_sum,
-        #                     "Eb_sum_bva": Eb_sum_bvs,
-        #                     "Eb_sum_bva_nn": Eb_sum_bvs_nn,
-        #                     "Vr_max": Vr_max,
-        #                     "Eg": Eg,
-        #                     "Ev": Ev,
-        #                     "Ehull": Ehull,
-        #                 }
-        #             ),
-        #         ]
-        #     )
-        # except ValueError:
-        #     print("df failed")
-        #     pass
+                            "site": site_index,
+                            "Eb_sum": Eb_sum,
+                            "Eb_sum_bva": Eb_sum_bvs,
+                            "Eb_sum_bva_nn": Eb_sum_bvs_nn,
+                            "Vr_max": Vr_max,
+                            "Eg": Eg,
+                            "Ev": Ev,
+                            "Ehull": Ehull,
+                        }
+                    ),
+                ]
+            )
+        except ValueError:
+            print("df failed")
+            pass
 
     df_cf = df_cf.reset_index(drop=True)
-    # df_cf.to_csv("../data/papers/witman/figures/witman_data_polymorphs.csv", index=False)
 
-    csv_file_path = "../data/papers/witman/figures/witman_data_polymorphs.csv"
-
-    # Define the field names
-    field_names = ["formula", "defectid", "site", "Eb_sum", "Eb_sum_bva", "Eb_sum_bva_nn", "Vr_max", "Eg", "Ev", "Ehull"]
-
-    # Write the data to the CSV file
-    with open(csv_file_path, mode='w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=field_names)
-
-        # Write the header
-        writer.writeheader()
-
-        # Write the data
-        for data_row in data_for_csv:
-            writer.writerow(data_row)
-    exit(3)
     df_cf = df_cf.dropna()
     cfm = HuberRegressor()
     cfm_alt = HuberRegressor()
