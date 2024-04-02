@@ -5,7 +5,9 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from pymatgen.analysis.local_env import CrystalNN
+from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.core import Structure, Composition
+from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.vis.structure_vtk import StructureVis
 from sklearn.linear_model import HuberRegressor
 from tqdm import tqdm
@@ -23,6 +25,26 @@ def get_nearest_neighbors(structure, site_index):
         site = neighbor_info['site']
         nearest_neighbors.append(site)
     return nearest_neighbors
+def get_unique_oxygen_indices(structure, index):
+    # Get the space group and symmetry-equivalent sites
+    index_python = index - 1
+    oxygen_indices = [i for i, site in enumerate(structure) if site.species_string == "O2-"]
+    if not oxygen_indices:
+        raise ValueError("No oxygen atoms found in the structure")
+
+    # Get the space group and symmetry-equivalent sites
+    sg_analyzer = SpacegroupAnalyzer(structure)
+    symm_structure = sg_analyzer.get_symmetrized_structure()
+
+    unique_oxygen_indices = []
+    for i in oxygen_indices:
+        wyckoff_label = symm_structure.equivalent_indices[i][0]
+        if wyckoff_label not in [symm_structure.equivalent_indices[j][0] for j in unique_oxygen_indices]:
+            unique_oxygen_indices.append(i)
+    if unique_oxygen_indices:
+        return unique_oxygen_indices[index_python]
+    else:
+        return [oxygen_indices[0]]
 
 def main():
     data_path = '/Users/isakov/Desktop/Fall_23/structures_production/data_01_03_22/'  #this path will not work as currently set
@@ -99,12 +121,16 @@ def main():
 
     for defectid in tqdm(df["defectid"].unique()):
         df_defectid = df[df["defectid"] == defectid]
+        poscar = df_defectid["poscar"].iloc[0]
+        print(poscar)
         structure = df_defectid["structure"].iloc[0]
         print(structure)
         site_index = df_defectid["site"].iloc[0]
         print(site_index)
+        unique_oxygen_indices = get_unique_oxygen_indices(structure, site_index)
+        print(unique_oxygen_indices)
         defect_site = structure[site_index]
-        try:
+        '''try:
             valences = BVA().get_valences(structure)
             site_valence = valences[site_index]
             print(site_valence)
@@ -174,7 +200,7 @@ def main():
             print("df failed")
             pass
 
-    df_cf = df_cf.reset_index(drop=True)
+    df_cf = df_cf.reset_index(drop=True)'''
 
     df_cf = df_cf.dropna()
     cfm = HuberRegressor()

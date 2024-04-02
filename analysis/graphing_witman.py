@@ -7,7 +7,7 @@ from adjustText import adjust_text
 from sklearn.model_selection import KFold, train_test_split, cross_val_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-df_cf = pd.read_csv('')
+df_cf = pd.read_csv('../data/papers/witman/figures/witman_data_bvs.csv')
 dropped_values = df_cf[df_cf.isnull().any(axis=1)]
 dropped_values.to_csv("weighted_drops")
 
@@ -46,7 +46,7 @@ rmse = mean_squared_error(y, y_pred, squared=False)
 # rmse = mean_squared_error(y_test, y_pred, squared=False)
 confidence = (np.quantile(scores, [0.025, .975]))
 
-plt.style.use('seaborn-v0_8-talk')
+# plt.style.use('seaborn-v0_8-talk')
 plt.scatter(y_pred, y)
 plt.plot([1, 9], [1, 9], "k--")
 plt.xlim(min(y_pred) - 1, max(y_pred) + 1)
@@ -73,7 +73,7 @@ texts = []
 # adjust_text(texts, arrowprops=dict(arrowstyle="-", color="k", lw=0.5))
 plt.xlabel(str(equation))
 plt.ylabel(f"Witman et al. $E_v$")
-plt.title("CFM for binary oxides with band gap energies")
+plt.title("CFM for ternaries with integer CN")
 #plt.legend(bbox_to_anchor=(1.1, 1.0), prop={'size': 8})
 #plt.text(1.1, 0.9, "each color represents a unique defect id")
 plt.savefig("CFM_t_Eb_Vr_Eg_nw_KF5.png", dpi=300)
