@@ -7,11 +7,13 @@ from adjustText import adjust_text
 from sklearn.model_selection import KFold, train_test_split, cross_val_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-df_cf = pd.read_csv('../data/papers/witman/figures/witman_data_bvs.csv')
+df_cf = pd.read_csv('../data/papers/witman/figures/witman_bva_indexing.csv')
 dropped_values = df_cf[df_cf.isnull().any(axis=1)]
-dropped_values.to_csv("weighted_drops")
+# dropped_values.to_csv("weighted_drops")
 
 df_cf = df_cf.dropna()
+df_cf.to_csv("are_there_repeats.csv")
+exit(3)
 cfm = HuberRegressor()
 # X = df_cf[["Vr_max"]]
 # X = df_cf[["Eb_sum", "Vr_max"]]
