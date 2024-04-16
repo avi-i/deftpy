@@ -10,6 +10,8 @@ from pymatgen.core import Structure, Composition
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.vis.structure_vtk import StructureVis
 from sklearn.linear_model import HuberRegressor
+from sklearn.metrics import mean_absolute_error
+from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 from pymatgen.analysis.bond_valence import BVAnalyzer as BVA, calculate_bv_sum
 from crystal_analysis import Crystal
@@ -25,27 +27,80 @@ def get_nearest_neighbors(structure, site_index):
         site = neighbor_info['site']
         nearest_neighbors.append(site)
     return nearest_neighbors
-def get_unique_oxygen_indices(structure, index):
+def get_poscar_site(poscar, index):
+    lines = poscar.strip().split('\n')
+    try:
+        elements_line = lines[4].split()
+
+        # Find the position of O(index)
+        o_index = f'O{index}'
+        try:
+            o_index_position = elements_line.index(o_index)
+        except ValueError:
+            o_index = f'O'
+            o_index_position = elements_line.index(o_index)
+
+        # Parse the line with atomic counts to calculate new index
+        indices = [int(count) for count in lines[5].split()]  # Adjusted line number
+        new_index = sum(indices[:o_index_position])
+        poscar_index = (new_index + 7)
+        oxygen = lines[poscar_index]
+        return poscar_index, oxygen
+    except ValueError:
+        elements_line = lines[5].split()
+
+        # Find the position of O(index)
+        o_index = f'O{index}'
+        try:
+            o_index_position = elements_line.index(o_index)
+        except ValueError:
+            o_index = f'O'
+            o_index_position = elements_line.index(o_index)
+
+        # Parse the line with atomic counts to calculate new index
+        indices = [int(count) for count in lines[6].split()]  # Adjusted line number
+        new_index = sum(indices[:o_index_position])
+        poscar_index = new_index + 8
+        oxygen = lines[poscar_index]
+        return poscar_index, oxygen
+def get_oxygen_index(poscar, index):
     # Get the space group and symmetry-equivalent sites
     index_python = index - 1
-    oxygen_indices = [i for i, site in enumerate(structure) if site.species_string == "O2-"]
-    if not oxygen_indices:
-        raise ValueError("No oxygen atoms found in the structure")
+    lines = poscar.strip().split('\n')
 
-    # Get the space group and symmetry-equivalent sites
-    sg_analyzer = SpacegroupAnalyzer(structure)
-    symm_structure = sg_analyzer.get_symmetrized_structure()
+    # Assuming the line with atomic symbols is fixed at line 6 (0-based indexing)
+    try:
+        elements_line = lines[4].split()
 
-    unique_oxygen_indices = []
-    for i in oxygen_indices:
-        wyckoff_label = symm_structure.equivalent_indices[i][0]
-        if wyckoff_label not in [symm_structure.equivalent_indices[j][0] for j in unique_oxygen_indices]:
-            unique_oxygen_indices.append(i)
-    if unique_oxygen_indices:
-        return unique_oxygen_indices[index_python]
-    else:
-        return [oxygen_indices[0]]
+        # Find the position of O(index)
+        o_index = f'O{index}'
+        try:
+            o_index_position = elements_line.index(o_index)
+        except ValueError:
+            o_index = f'O'
+            o_index_position = elements_line.index(o_index)
 
+        # Parse the line with atomic counts to calculate new index
+        indices = [int(count) for count in lines[5].split()]  # Adjusted line number
+        new_index = sum(indices[:o_index_position])
+
+        return new_index
+    except ValueError:
+        elements_line = lines[5].split()
+
+        # Find the position of O(index)
+        o_index = f'O{index}'
+        try:
+            o_index_position = elements_line.index(o_index)
+        except ValueError:
+            o_index = f'O'
+            o_index_position = elements_line.index(o_index)
+
+        # Parse the line with atomic counts to calculate new index
+        indices = [int(count) for count in lines[6].split()]  # Adjusted line number
+        new_index = sum(indices[:o_index_position])
+
+        return new_index
 def main():
     data_path = '/Users/isakov/Desktop/Fall_23/structures_production/data_01_03_22/'  #this path will not work as currently set
     csv_paths = sorted(glob(data_path + "csvs/*.csv"))
@@ -72,7 +127,7 @@ def main():
     df["poscar"] = df["filename"].apply(lambda x: open(f"{poscar_path}/{x}_POSCAR_wyck").read())
 
     # Create a column for the pymatgen structure
-    df["structure"] = df["poscar"].apply(lambda x: Structure.from_str(x, fmt="poscar"))
+    df["structure"] = df["poscar"].apply(lambda x: Structure.from_str(x, fmt="poscar", sort=False))
 
     # Add oxidation states to the structure
     for _, row in df.iterrows():
@@ -117,35 +172,45 @@ def main():
     # Calculate crystal features for binary structures
     #df = df[df["is_binary"]]
     df = df[df["is_binary_or_ternary"]]
+
     df_cf = pd.DataFrame()
 
-    for defectid in tqdm(df["defectid"].unique()):
-        df_defectid = df[df["defectid"] == defectid]
-        poscar = df_defectid["poscar"].iloc[0]
-        print(poscar)
-        structure = df_defectid["structure"].iloc[0]
-        print(structure)
-        site_index = df_defectid["site"].iloc[0]
-        print(site_index)
-        unique_oxygen_indices = get_unique_oxygen_indices(structure, site_index)
-        print(unique_oxygen_indices)
-        defect_site = structure[site_index]
-        '''try:
+    for _, row in tqdm(df.iterrows()):
+    # for defectid in tqdm(df["defectid"].unique()):
+    #     df_defectid = df[df["defectid"] == defectid]
+    #     poscar = df_defectid["poscar"].iloc[0]
+        poscar = row['poscar']
+        # print(poscar)
+        # structure = df_defectid["structure"].iloc[0]
+        structure = row["structure"]
+        # print(structure)
+        # site_index = df_defectid["site"].iloc[0]
+        site_index = row["site"]
+        # print(site_index)
+        poscar_site = get_poscar_site(poscar, site_index)
+        # print('poscar', poscar_site)
+        unique_oxygen_indices = get_oxygen_index(poscar, site_index)
+        # print("str_index", unique_oxygen_indices)
+        # print(unique_oxygen_indices)
+        defect_site = structure[unique_oxygen_indices]
+        site_coords = defect_site.frac_coords
+        # print("strucutre", site_coords)
+        try:
             valences = BVA().get_valences(structure)
-            site_valence = valences[site_index]
-            print(site_valence)
-            near_neighbors = get_nearest_neighbors(structure, site_index)
-            nn = structure.get_neighbors(defect_site, 3)
+            site_valence = valences[unique_oxygen_indices]
+            # print(site_valence)
+            near_neighbors = get_nearest_neighbors(structure, unique_oxygen_indices)
+            # nn = structure.get_neighbors(defect_site, 3)
             bv_sum_defined = calculate_bv_sum(site=defect_site, nn_list=near_neighbors)
-            bv_sum_nn = calculate_bv_sum(site=defect_site, nn_list=nn)
+            # bv_sum_nn = calculate_bv_sum(site=defect_site, nn_list=nn)
             bvs_ratio_crystal = bv_sum_defined/site_valence
-            bvs_ratio_nn = bv_sum_nn/site_valence
+            # bvs_ratio_nn = bv_sum_nn/site_valence
         except ValueError:
             bvs_ratio_crystal = np.nan
             bvs_ratio_nn = np.nan
-        # crystal = Crystal(pymatgen_structure=structure, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
-        crystal = Crystal(pymatgen_structure=structure)
-        #crystal.structure.to(filename="AlCoO_nw.VASP", fmt="poscar")
+        crystal = Crystal(pymatgen_structure=structure, nn_finder=CrystalNN(weighted_cn=True, cation_anion=True), use_weights=True)
+        # crystal = Crystal(pymatgen_structure=structure)
+        # crystal.structure.to(filename="AlCoO_nw.VASP", fmt="poscar")
 
         CN = crystal.cn_dicts
         Eb = crystal.bond_dissociation_enthalpies
@@ -160,7 +225,7 @@ def main():
             Eb_array = np.array(list(Eb_dict.values()))
             Eb_sum.append(np.sum(CN_array * Eb_array))
             Eb_sum_bvs.append(np.sum(CN_array * bvs_ratio_crystal * Eb_array))
-            Eb_sum_bvs_nn.append(np.sum(CN_array * bvs_ratio_nn * Eb_array))
+            # Eb_sum_bvs_nn.append(np.sum(CN_array * bvs_ratio_nn * Eb_array))
         # Calculate maximum Vr
         Vr_max = []
         for Vr_dict in Vr:
@@ -171,11 +236,15 @@ def main():
         #print(Vr_max)
 
         # Make a dataframe
-        formula = df_defectid["formula"].values
-        defectid = df_defectid["defectid"].values
-        Eg = df_defectid["bandgap_eV"].values
-        Ev = df_defectid["dH_eV"].values
-        Ehull = df_defectid["adjusted_dH"].values
+        # formula = df_defectid["formula"].values
+        formula = row["formula"]
+        # defectid = df_defectid["defectid"].values
+        defectid = row["defectid"]
+        # Eg = df_defectid["bandgap_eV"].values
+        Eg = row["bandgap_eV"]
+        # Ev = df_defectid["dH_eV"].values
+        Ev = row["dH_eV"]
+        # Ehull = df_defectid["adjusted_dH"].values
         try:
             df_cf = pd.concat(
                 [
@@ -185,23 +254,25 @@ def main():
                             "formula": formula,
                             "defectid": defectid,
                             "site": site_index,
-                            "Eb_sum": Eb_sum,
-                            "Eb_sum_bva": Eb_sum_bvs,
-                            "Eb_sum_bva_nn": Eb_sum_bvs_nn,
+                            "valence_ratio_Crsyal": bvs_ratio_crystal,
+                            "Eb_sum": Eb_sum[0],
+                            "Eb_sum_bva": Eb_sum_bvs[0],
+                            # "Eb_sum_bva_nn": Eb_sum_bvs_nn,
                             "Vr_max": Vr_max,
                             "Eg": Eg,
                             "Ev": Ev,
-                            "Ehull": Ehull,
+                            # "Ehull": Ehull,
                         }
                     ),
                 ]
             )
         except ValueError:
-            print("df failed")
+            # print("df failed")
             pass
 
-    df_cf = df_cf.reset_index(drop=True)'''
-
+    df_cf = df_cf.reset_index(drop=True)
+    df_cf = df_cf.drop_duplicates()
+    df_cf.to_csv("witman_weighted.csv")
     df_cf = df_cf.dropna()
     cfm = HuberRegressor()
     cfm_alt = HuberRegressor()
@@ -210,13 +281,18 @@ def main():
     X_alt = df_cf[["Eb_sum_bva", "Vr_max", "Eg"]]
     # X = df_cf[["Eb_sum", "Vr_max", "Eg", "Ehull"]]
     y = df_cf["Ev"]
-    cfm.fit(X, y)
-    cfm_alt.fit(X_alt, y)
-    y_pred = cfm.predict(X)
-    y_pred_alt = cfm_alt.predict(X_alt)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=21)
+    cfm.fit(X_train, y_train)
+    y_pred = cfm.predict(X_test)
     coefs = cfm.coef_
-    ceofs_alt = cfm_alt.coef_
     print(coefs)
+    mae = mean_absolute_error(y_test, y_pred)
+    X_alt_train, X_alt_test, y_alt_train, y_alt_test = train_test_split(X_alt, y, test_size=0.3, random_state=21)
+    cfm_alt.fit(X_alt_train, y_alt_train)
+    y_pred_alt = cfm_alt.predict(X_alt_test)
+    ceofs_alt = cfm_alt.coef_
+    mae_alt = mean_absolute_error(y_alt_test, y_pred_alt)
+
     #exit(4)
     # df_cf['y_pred'] = y_pred
 
@@ -225,13 +301,13 @@ def main():
 
     # equation = f"$E_v$ = {cfm.intercept_:.2f} + {cfm.coef_[0]:.2f} $\\Sigma E_b$ + {cfm.coef_[1]:.2f} $V_r$ + {cfm.coef_[2]:.2f} $E_g$ + {cfm.coef_[3]:.2f} $E_h_u_l_l$"
     print(equation)
-    mae = np.mean(np.abs(y - y_pred))
-    mae_alt = np.mean(np.abs(y - y_pred_alt))
+    # mae = np.mean(np.abs(y - y_pred))
+    # mae_alt = np.mean(np.abs(y - y_pred_alt))
     print(mae)
     n = f"n = {len(y_pred)}"
     n_alt = f"n = {len(y_pred_alt)}"
     print(n)
-
+    print("using bond valence ratio")
     print(ceofs_alt)
     print(equation_alt)
     print(mae_alt)
