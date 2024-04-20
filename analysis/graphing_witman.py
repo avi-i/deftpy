@@ -6,19 +6,23 @@ from matplotlib import pyplot as plt
 from adjustText import adjust_text
 from sklearn.model_selection import KFold, train_test_split, cross_val_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from pymatgen.core import Composition
 
 # df_cf = pd.read_csv('../data/papers/witman/figures/witman_bva_indexing.csv')
-df_cf = pd.read_csv('../data/papers/witman/figures/witman_test_loop2.csv')
+df_cf = pd.read_csv('../data/papers/witman/figures/witman_weighted.csv')
 dropped_values = df_cf[df_cf.isnull().any(axis=1)]
 # dropped_values.to_csv("weighted_drops")
 
 df_cf = df_cf.dropna()
 # df_cf.to_csv("are_there_repeats.csv")
+df_cf["is_binary"] = df_cf["formula"].apply(lambda x: len(Composition(x).elements) == 2)
+df_cf = df_cf[df_cf["is_binary"]]
 
 cfm = HuberRegressor()
 # X = df_cf[["Vr_max"]]
 # X = df_cf[["Eb_sum", "Vr_max"]]
 # X = df_cf[["Vr_max", "Eg"]]
+# X = df_cf[["Eb_sum", "Vr_max", "Eg"]]
 X = df_cf[["Eb_sum_bva", "Vr_max", "Eg"]]
 # X = df_cf[["Eb_sum", "Vr_max", "Eg", "Ehull"]]
 y = df_cf["Ev"]
@@ -60,24 +64,24 @@ plt.gca().set_aspect('equal', adjustable='box')
 equation = f"$E_v$ = {cfm.coef_[0]:.2f} $\\Sigma E_b$ {cfm.coef_[1]:.2f} $V_r$ + {cfm.coef_[2]:.2f} $E_g$ + {cfm.intercept_:.2f} (eV)"
 # equation = f"$E_v$ = {cfm.coef_[0]:.2f} $\\Sigma E_b$ {cfm.coef_[1]:.2f} $V_r$ + {cfm.coef_[2]:.2f} $E_g$ + {cfm.coef_[3]:.2f} $E_{{hull}}$ + {cfm.intercept_:.2f} (eV)"
 mae = np.mean(np.abs(y - y_pred))
-plt.text(5.75, 1.5, f"MAE = {mae:.2f} eV", fontsize=12)
+plt.text(2, 7, f"MAE = {mae:.2f} eV", fontsize=12)
 #binary
 # oxides = f"$MO_x$"
 #binary and ternary
 oxides = f"$MO_x$, $ABO_x$"
-plt.text(5.75, 2, oxides, fontsize=12)
-#add number of data points as text
-plt.text(5.75, 1, f"n = {len(y)}", fontsize=12)
-plt.text(5.75, 0.5, f"mean = {-1 * mean:.2f}", fontsize=12)
-plt.text(5.75, 0, f"std = {std:.2f}", fontsize=12)
+# plt.text(5.5, 4, oxides, fontsize=12)
+# #add number of data points as text
+plt.text(2, 6.5, f"n = {len(y)}", fontsize=12)
+# plt.text(5.5, 3.5, f"mean = {-1 * mean:.2f}", fontsize=12)
+# plt.text(5.5, 2.5, f"std = {std:.2f}", fontsize=12)
 texts = []
-# for x, y, s in zip(y_pred, y, df_cf["formula"]):
-#         texts.append(plt.text(x, y, s, size=10))
-# adjust_text(texts, arrowprops=dict(arrowstyle="-", color="k", lw=0.5))
+for x, y, s in zip(y_pred, y, df_cf["formula"]):
+        texts.append(plt.text(x, y, s, size=8))
+adjust_text(texts, arrowprops=dict(arrowstyle="-", color="k", lw=0.5))
 plt.xlabel(str(equation))
 plt.ylabel(f"Witman et al. $E_v$")
-plt.title("CFM for ternaries with bond valence weighted CN")
+plt.title("CFM for ternaries CN")
 #plt.legend(bbox_to_anchor=(1.1, 1.0), prop={'size': 8})
 #plt.text(1.1, 0.9, "each color represents a unique defect id")
-plt.savefig("CFM_t_Eb_Vr_Eg_bva_KF5_loop.png", dpi=300)
+plt.savefig("CFM_t_Eb_frac_bva_Vr_Eg_KF5_loop.pdf", dpi=300)
 plt.show()
