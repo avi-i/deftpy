@@ -70,7 +70,7 @@ def main():
     full_summary = fii.summary()
     p_values = fii.summary2().tables[1]['P>|t|']
     print(full_summary, p_values)
-    exit(3)
+
     # plot covariance of features in model
     # sns.heatmap(X.cov())
     # plt.show()
@@ -83,14 +83,46 @@ def main():
     # plt.savefig("qqplt_ww.png", bbox_inches='tight')
     plt.show()
 
+    kf_coefs = []
     # utilize kfold splits to ensure no under/over fitting of data
     kf = KFold(n_splits=5, shuffle=True, random_state=21)
     scores = cross_val_score(cfm, X, y, scoring='neg_mean_absolute_error', cv=kf)
-    coefs = cfm.coef_
+    # coefs = cfm.coef_
     for score in scores:
         print('score for this fold is ', score)
         print('coefficients', cfm.coef_)
 
+    for train_index, test_index in kf.split(X):
+        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+        cfm.fit(X_train, y_train)
+        coefs = cfm.coef_
+        kf_coefs.append(coefs)
+
+    # plot the changes in the coefs_
+    data = np.array(kf_coefs).T
+
+    fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
+    plt.title("changes to coefficients for each fold")
+    for i, line_data in enumerate(data):
+        axs[i].plot(line_data, label=f'Line {i+1}')
+        axs[i].set_xlabel("Fold Iteration", fontsize=11)
+        axs[i].set_ylabel(f"coefficient $E_v$", fontsize=11)
+        dev = line_data.std()
+        print(dev)
+        axs[i].text(0.5, 0.8, f'Std Dev: {dev:.2f}', transform=axs[i].transAxes, fontsize=11,
+                    verticalalignment='top')
+        if i == 0:
+            axs[i].set_title("$\\Sigma E_b$", fontsize=11)
+        if i == 1:
+            axs[i].set_title("$V_r$", fontsize=11)
+        if i == 2:
+            axs[i].set_title("$E_g$", fontsize=11)
+    plt.tight_layout()
+    plt.savefig("StdDev_KF_coef_nw.tiff")
+    plt.show()
+    exit(3)
     # plot histogram of scores
     # plt.hist(scores, bins=20)
     # plt.show()
