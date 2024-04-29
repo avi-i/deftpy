@@ -64,11 +64,14 @@ def main():
             Neighbors = base_structure.get_neighbors(base_structure[n], 3)
             # print(Neighbors, type(Neighbors))
             bv_sum_defined = calculate_bv_sum(site=defect_site, nn_list=nearest_neighbors)
+            print(bv_sum_defined)
             bv_sum_Neighbors = calculate_bv_sum(site=defect_site, nn_list=Neighbors)
             # print(bv_sum_Neighbors, bv_sum_defined)
             el = defect_site.species_string
             site_valence = valences[n]
-
+            print(site_valence)
+            print(bv_sum_defined/site_valence)
+            exit(3)
             valence_for_index.append({
                 "site": n,
                 "formula": formula,

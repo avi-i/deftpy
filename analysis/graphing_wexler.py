@@ -1,20 +1,22 @@
-from sklearn.linear_model import HuberRegressor
+from sklearn.linear_model import HuberRegressor, LinearRegression
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 from adjustText import adjust_text
 from sklearn.model_selection import KFold, train_test_split, cross_val_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-# import seaborn
+from statsmodels.graphics.gofplots import qqplot
+import statsmodels.api as sm
 
 def main():
 
     # read in df
     df_cfm = pd.read_csv("wexler_nw_match.csv")
-    # df_cfm = df_cfm.drop(df_cfm[df_cfm['Ev'] < 0].index)
+    df_cfm = df_cfm.drop(df_cfm[df_cfm['Ev'] < 1].index)
     df_cfm = df_cfm[["formula", "Ev", "Eg", "vacancy", "space_group", "Eb", "Vr_max", "PT_oxide"]].reset_index(drop=True)
     df_cfm = df_cfm.dropna()
     df_cfm = df_cfm.reset_index(drop=True)
+
     # band gaps (needs to be done using wexler_ww.csv)
     # calculated = df_cfm["Eg"]
     # mp = df_cfm["mp_Eg"]
@@ -45,16 +47,43 @@ def main():
 
     # create definitions
     cfm = HuberRegressor()
-    X = df_cfm[["Vr_max"]]
-    X = df_cfm[["Eb", "Vr_max"]]
+    lr = LinearRegression()
+    # X = df_cfm[["Vr_max"]]
+    # X = df_cfm[["Eb", "Vr_max"]]
+    # X = df_cfm[["Vr_max", "Eg"]]
     X = df_cfm[["Eb", "Vr_max", "Eg"]]
-    # X = df_cfm[["Eb_sum", "Vr_max", "mp_Eg"]]
-    # X = df_cfm[["Eb_sum", "Vr_max", "mp_Eg", "mp_ehull"]]
+    # X = df_cfm[["Eb", "Vr_max", "mp_Eg"]]
+    # X = df_cfm[["Eb", "Vr_max", "mp_Eg", "mp_ehull"]]
     y = df_cfm["Ev"]
     cfm.fit(X, y)
     y_pred = cfm.predict(X)
-    cfm.score(X, y)
+    R2_score = cfm.score(X, y)
+    # linear regression to compare w/ p-values
+    lr.fit(X, y)
+    y_pred_lr = lr.predict(X)
+    R2_lr_score = lr.score(X, y)
+    print(f"score = {R2_score}", f"lr score = {R2_lr_score}")
 
+    # p-values for coefs in lr
+    mod = sm.OLS(y, X)
+    fii = mod.fit()
+    full_summary = fii.summary()
+    p_values = fii.summary2().tables[1]['P>|t|']
+    print(full_summary, p_values)
+    exit(3)
+    # plot covariance of features in model
+    # sns.heatmap(X.cov())
+    # plt.show()
+
+    # plot qqplot of residuals to show normalized data-set
+    residuals = y-y_pred
+    t = qqplot(residuals, line='q')
+    plt.tight_layout()
+    plt.title("QQPlot for fractionally weighted residuals")
+    # plt.savefig("qqplt_ww.png", bbox_inches='tight')
+    plt.show()
+
+    # utilize kfold splits to ensure no under/over fitting of data
     kf = KFold(n_splits=5, shuffle=True, random_state=21)
     scores = cross_val_score(cfm, X, y, scoring='neg_mean_absolute_error', cv=kf)
     coefs = cfm.coef_
@@ -62,6 +91,7 @@ def main():
         print('score for this fold is ', score)
         print('coefficients', cfm.coef_)
 
+    # plot histogram of scores
     # plt.hist(scores, bins=20)
     # plt.show()
 
@@ -77,7 +107,7 @@ def main():
 
     plt.plot([1, 9], [1, 9], "k--")
 
-    for _, row in df_cfm.iterrows():
+    for _, row in df_cfm.sort_values('formula').iterrows():
         oxide = row["PT_oxide"]
         plt.scatter(y_pred[_], y[_], color=(formula_color_map[row["formula"]]), marker=marker[oxide])
 
@@ -85,23 +115,31 @@ def main():
     plt.xlim(min(y_pred) - 1, max(y_pred) + 1)
     plt.ylim(min(y) - 1, max(y) + 1)
     plt.gca().set_aspect('equal', adjustable='box')
-    equation = "$E_v = {:.2f} {:+.2f} E_b {:+.2f} V_r {:+.2f} E_g$".format(cfm.intercept_, cfm.coef_[0],
-                                                                               cfm.coef_[1], cfm.coef_[2])
+    # equation = "$E_v = {:.2f} {:+.2f} V_r$".format(cfm.intercept_, cfm.coef_[0])
+    # equation = "$E_v = {:.2f} {:+.2f} \\Sigma E_b {:+.2f} V_r$".format(cfm.intercept_, cfm.coef_[0], cfm.coef_[1])
+    # equation = "$E_v = {:.2f} {:+.2f} V_r {:+.2f} E_g$".format(cfm.intercept_, cfm.coef_[0], cfm.coef_[1])
+    equation = "$E_v = {:.2f} {:+.2f} \\Sigma E_b {:+.2f} V_r {:+.2f} E_g$".format(cfm.intercept_, cfm.coef_[0],
+                                                                           cfm.coef_[1], cfm.coef_[2])
+    equation_lr = "$E_v = {:.2f} {:+.2f} \\Sigma E_b {:+.2f} V_r {:+.2f} E_g$".format(lr.intercept_, lr.coef_[0],
+                                                                                   lr.coef_[1], lr.coef_[2])
+    print(equation)
+    print(equation_lr)
     mae = np.mean(np.abs(y - y_pred))
     # oxides = f"$MO_x$, $ABO_x$"
     oxides = f"$MO_x$"
-    plt.text(5, 0, f"MAE = {mae:.2f}", fontsize=10)
+    plt.text(6, 3.5, f"$R^2 = {R2_score:.2f}$", fontsize=10)
+    plt.text(6, 3, f"MAE = {mae:.2f}", fontsize=10)
     # plt.text(7, 4, oxides, fontsize=12)
-    plt.text(5, -0.5, f"n = {len(y)}", fontsize=10)
-    plt.text(5, -1.0, f"mean = {-1 * mean:.2f}", fontsize=10)
-    plt.text(5, -1.5, f"std = {std:.2f}", fontsize=10)
+    plt.text(6, 2.5, f"n = {len(y)}", fontsize=10)
+    plt.text(6, 2, f"mean = {-1 * mean:.2f}", fontsize=10)
+    plt.text(6, 1.5, f"std = {std:.2f}", fontsize=10)
     plt.xlabel(str(equation))
     texts = []
     # for x, y, s in zip(y_pred, y, df_cfm["space_group"]):
     #         texts.append(plt.text(x, y, s, size=6))
     # adjust_text(texts, arrowprops=dict(arrowstyle="-", color="k", lw=0.5))
     plt.ylabel(f"Wexler $E_v$")
-    plt.title("CFM for binaries with non-weighted CN")
+    plt.title("CFM for binaries including $\\Sigma E_b$")
     handles = []
     labels = []
     for key, value in formula_color_map.items():
@@ -113,7 +151,7 @@ def main():
     for x in ['alkaline earth', 'alkali', 'group 13']:
         labels.append(x)
     plt.legend(handles, labels, loc=(1.05, 0.08))
-    plt.savefig("wexler_Eg_frac_outlier_nw.pdf")
+    plt.savefig("wexler_linear_nw.tiff", bbox_inches='tight')
     plt.show()
 
 if __name__ == "__main__":
