@@ -41,7 +41,7 @@ def main():
     # Remove the column named "Unnamed: 0"
     # df = df.drop("Unnamed: 0", axis=1)
 
-    df = pd.read_csv("complete_df_indexed.csv")  # aquired using getting_indexes.py
+    df = pd.read_csv("csvs/complete_df_indexed.csv")  # aquired using getting_indexes.py
 
     # Remove non-binary compounds
     df["is_binary"] = df.formula.apply(lambda x: len(Composition(x)) == 2)

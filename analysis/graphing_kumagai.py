@@ -25,7 +25,7 @@ plt.show()'''
 # exit(23)
 
 # # CFM
-df_plot = pd.read_csv("kumagai_binary_Eb_Vr.csv")
+df_plot = pd.read_csv("csvs/kumagai_binary_Eb_Vr.csv")
 # df_bva = pd.read_csv("valence_data_full.csv")
 # df_bva['vacancy_index'] = df_bva['site'] + 1
 # df_bva['merge_on'] = df_bva['full_name'] + df_bva['vacancy_index'].astype(str)

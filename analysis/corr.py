@@ -7,8 +7,8 @@ from adjustText import adjust_text
 def main():
 
     # define data frames
-    df = pd.read_csv('kumagai_Vr_Eb_full_frac.csv')
-    df_bva = pd.read_csv("valence_data_full.csv")
+    df = pd.read_csv('csvs/kumagai_Vr_Eb_full_frac.csv')
+    df_bva = pd.read_csv("csvs/valence_data_full.csv")
     df_bva['vacancy_index'] = df_bva['site'] + 1
     df_bva['merge_on'] = df_bva['full_name'] + df_bva['vacancy_index'].astype(str)
     df_bva = df_bva[["merge_on", 'valence', 'bv_sum_Crystal', 'bv_sum_nn']].reset_index(drop=True)
@@ -65,8 +65,8 @@ def main():
     plt.savefig('BVS_crystal_vs_nn_colorized.png')
     plt.show()'''
 
-    df_Eb_BVS = pd.read_csv("kumagai_full_Eb_BVS_frac_Vr.csv")
-    df_Eb = pd.read_csv("kumagai_Vr_Eb_full.csv")
+    df_Eb_BVS = pd.read_csv("csvs/kumagai_full_Eb_BVS_frac_Vr.csv")
+    df_Eb = pd.read_csv("csvs/kumagai_Vr_Eb_full.csv")
 
     Eb_bvs = df_Eb_BVS["Eb_sum"]
     Eb_frac = df_Eb["Eb_sum"]

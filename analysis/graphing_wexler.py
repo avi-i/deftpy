@@ -11,7 +11,7 @@ import statsmodels.api as sm
 def main():
 
     # read in df
-    df_cfm = pd.read_csv("wexler_nw_match.csv")
+    df_cfm = pd.read_csv("csvs/wexler_nw_match.csv")
     df_cfm = df_cfm.drop(df_cfm[df_cfm['Ev'] < 1].index)
     df_cfm = df_cfm[["formula", "Ev", "Eg", "vacancy", "space_group", "Eb", "Vr_max", "PT_oxide"]].reset_index(drop=True)
     df_cfm = df_cfm.dropna()
@@ -76,12 +76,12 @@ def main():
     # plt.show()
 
     # plot qqplot of residuals to show normalized data-set
-    residuals = y-y_pred
+    '''residuals = y-y_pred
     t = qqplot(residuals, line='q')
     plt.tight_layout()
     plt.title("QQPlot for fractionally weighted residuals")
     # plt.savefig("qqplt_ww.png", bbox_inches='tight')
-    plt.show()
+    plt.show()'''
 
     kf_coefs = []
     # utilize kfold splits to ensure no under/over fitting of data
@@ -101,7 +101,7 @@ def main():
         kf_coefs.append(coefs)
 
     # plot the changes in the coefs_
-    data = np.array(kf_coefs).T
+    '''data = np.array(kf_coefs).T
 
     fig, axs = plt.subplots(ncols=3, figsize=(12, 4))
     plt.title("changes to coefficients for each fold")
@@ -121,8 +121,8 @@ def main():
             axs[i].set_title("$E_g$", fontsize=11)
     plt.tight_layout()
     plt.savefig("StdDev_KF_coef_nw.tiff")
-    plt.show()
-    exit(3)
+    plt.show()'''
+
     # plot histogram of scores
     # plt.hist(scores, bins=20)
     # plt.show()
@@ -152,26 +152,26 @@ def main():
     # equation = "$E_v = {:.2f} {:+.2f} V_r {:+.2f} E_g$".format(cfm.intercept_, cfm.coef_[0], cfm.coef_[1])
     equation = "$E_v = {:.2f} {:+.2f} \\Sigma E_b {:+.2f} V_r {:+.2f} E_g$".format(cfm.intercept_, cfm.coef_[0],
                                                                            cfm.coef_[1], cfm.coef_[2])
-    equation_lr = "$E_v = {:.2f} {:+.2f} \\Sigma E_b {:+.2f} V_r {:+.2f} E_g$".format(lr.intercept_, lr.coef_[0],
-                                                                                   lr.coef_[1], lr.coef_[2])
+    # equation_lr = "$E_v = {:.2f} {:+.2f} \\Sigma E_b {:+.2f} V_r {:+.2f} E_g$".format(lr.intercept_, lr.coef_[0],
+    #                                                                                lr.coef_[1], lr.coef_[2])
     print(equation)
-    print(equation_lr)
+    # print(equation_lr)
     mae = np.mean(np.abs(y - y_pred))
     # oxides = f"$MO_x$, $ABO_x$"
     oxides = f"$MO_x$"
-    plt.text(6, 3.5, f"$R^2 = {R2_score:.2f}$", fontsize=10)
-    plt.text(6, 3, f"MAE = {mae:.2f}", fontsize=10)
+    plt.text(7, 4.5, f"$R^2 = {R2_score:.2f}$", fontsize=10)
+    plt.text(7, 4, f"MAE = {mae:.2f}", fontsize=10)
     # plt.text(7, 4, oxides, fontsize=12)
-    plt.text(6, 2.5, f"n = {len(y)}", fontsize=10)
-    plt.text(6, 2, f"mean = {-1 * mean:.2f}", fontsize=10)
-    plt.text(6, 1.5, f"std = {std:.2f}", fontsize=10)
+    plt.text(7, 3.5, f"n = {len(y)}", fontsize=10)
+    plt.text(7, 3, f"mean = {-1 * mean:.2f}", fontsize=10)
+    plt.text(7, 2.5, f"std = {std:.2f}", fontsize=10)
     plt.xlabel(str(equation))
     texts = []
     # for x, y, s in zip(y_pred, y, df_cfm["space_group"]):
     #         texts.append(plt.text(x, y, s, size=6))
     # adjust_text(texts, arrowprops=dict(arrowstyle="-", color="k", lw=0.5))
-    plt.ylabel(f"Wexler $E_v$")
-    plt.title("CFM for binaries including $\\Sigma E_b$")
+    plt.ylabel(f"R2SCAN+U $E_v$ (eV)")
+    plt.title("CFM for binaries metal oxides excluding outlier")
     handles = []
     labels = []
     for key, value in formula_color_map.items():
@@ -183,7 +183,7 @@ def main():
     for x in ['alkaline earth', 'alkali', 'group 13']:
         labels.append(x)
     plt.legend(handles, labels, loc=(1.05, 0.08))
-    plt.savefig("wexler_linear_nw.tiff", bbox_inches='tight')
+    plt.savefig("wexler_Eb_Vr_Eg_no_nw.tiff", bbox_inches='tight')
     plt.show()
 
 if __name__ == "__main__":

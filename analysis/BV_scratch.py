@@ -30,7 +30,7 @@ def get_nearest_neighbors(structure, site_index):
 
 def main():
 
-    df = pd.read_csv('complete_df_indexed.csv')
+    df = pd.read_csv('csvs/complete_df_indexed.csv')
     df["has_transition_metal"] = df.formula.apply(lambda x: any([el.is_transition_metal for el in Composition(x)]))
     df = df.loc[~df.has_transition_metal].reset_index(drop=True)
 
@@ -104,7 +104,7 @@ def main():
                 "element": el,
             })
             pass
-    csv_file_path = "valence_data_full.csv"
+    csv_file_path = "csvs/valence_data_full.csv"
 
     # Define the field names
     field_names = ["site", "formula", "full_name", "valence", "bv_sum_Crystal", "bv_sum_nn", "BVS_ratio", "element"]
